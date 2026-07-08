@@ -130,10 +130,15 @@ class GeoguessGame {
     const parent = this.canvas.parentElement;
     if (!parent) return;
     
-    // Capped at 600px width/height to fit screens without scrolling
-    const width = parent.clientWidth || 500;
-    const height = parent.clientHeight || 500;
-    const size = Math.min(width, height, 600);
+    // Temporarily clear styling to get accurate container width from browser layout
+    parent.style.width = '';
+    parent.style.height = '';
+    
+    const availableWidth = parent.clientWidth || 500;
+    
+    // Cap height at 75% of screen height to guarantee no scrolling, max width 780px
+    const maxViewportHeight = Math.min(window.innerHeight - 200, 780);
+    const size = Math.min(availableWidth, maxViewportHeight);
     
     const dpr = window.devicePixelRatio || 1;
     this.canvas.width = size * dpr;
@@ -142,7 +147,8 @@ class GeoguessGame {
     this.canvas.style.width = `${size}px`;
     this.canvas.style.height = `${size}px`;
     
-    // Make parent container wrap the square canvas perfectly
+    // Lock parent container to match canvas size exactly
+    parent.style.width = `${size}px`;
     parent.style.height = `${size}px`;
     
     this.ctx.scale(dpr, dpr);
