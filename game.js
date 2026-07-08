@@ -175,6 +175,9 @@ class GeoguessGame {
     this.gameActive = true;
     this.gameState = 'PLAYING';
     
+    // Toggle body class for fullscreen game mode
+    document.body.classList.add('game-active');
+    
     // Update screen visibility
     document.getElementById('welcomeScreen').classList.remove('active');
     document.getElementById('playScreen').classList.add('active');
@@ -351,6 +354,9 @@ class GeoguessGame {
   endGame() {
     this.gameState = 'GAMEOVER';
     
+    // Toggle body class to exit fullscreen mode
+    document.body.classList.remove('game-active');
+    
     document.getElementById('playScreen').classList.remove('active');
     document.getElementById('gameOverScreen').classList.add('active');
     
@@ -394,6 +400,9 @@ class GeoguessGame {
     this.selectedCountry = null;
     this.gameState = 'WELCOME';
     this.gameActive = false;
+    
+    // Toggle body class to exit fullscreen mode
+    document.body.classList.remove('game-active');
     
     document.getElementById('gameOverScreen').classList.remove('active');
     document.getElementById('welcomeScreen').classList.add('active');
