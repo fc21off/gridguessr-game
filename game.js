@@ -656,28 +656,32 @@ class GeoguessGame {
 
 // Projection helper
 function getProjection(bounds, canvasSize) {
+  // Convert all to radians for Mercator space calculations
   const minLatRad = bounds.minLat * Math.PI / 180;
   const maxLatRad = bounds.maxLat * Math.PI / 180;
+  const minLngRad = bounds.minLng * Math.PI / 180;
+  const maxLngRad = bounds.maxLng * Math.PI / 180;
   
   let minYMerc = Math.log(Math.tan(Math.PI / 4 + minLatRad / 2));
   let maxYMerc = Math.log(Math.tan(Math.PI / 4 + maxLatRad / 2));
   
-  let minLng = bounds.minLng;
-  let maxLng = bounds.maxLng;
+  let minX = minLngRad;
+  let maxX = maxLngRad;
   
-  let lngRange = maxLng - minLng;
-  let yMercRange = maxYMerc - minYMerc;
+  let xRange = maxX - minX;
+  let yRange = maxYMerc - minYMerc;
   
-  if (lngRange > yMercRange) {
-    const diff = lngRange - yMercRange;
+  // Maintain 1:1 aspect ratio in Mercator space
+  if (xRange > yRange) {
+    const diff = xRange - yRange;
     minYMerc -= diff / 2;
     maxYMerc += diff / 2;
-    yMercRange = lngRange;
+    yRange = xRange;
   } else {
-    const diff = yMercRange - lngRange;
-    minLng -= diff / 2;
-    maxLng += diff / 2;
-    lngRange = yMercRange;
+    const diff = yRange - xRange;
+    minX -= diff / 2;
+    maxX += diff / 2;
+    xRange = yRange;
   }
   
   // Padding for headers
@@ -697,10 +701,11 @@ function getProjection(bounds, canvasSize) {
   return {
     project: (lat, lng) => {
       const latRad = lat * Math.PI / 180;
+      const lngRad = lng * Math.PI / 180;
       const yMerc = Math.log(Math.tan(Math.PI / 4 + latRad / 2));
       
-      const pctX = (lng - minLng) / lngRange;
-      const pctY = (yMerc - minYMerc) / yMercRange;
+      const pctX = (lngRad - minX) / xRange;
+      const pctY = (yMerc - minYMerc) / yRange;
       
       const x = gridX + pctX * size;
       const y = gridY + (1 - pctY) * size;
@@ -710,9 +715,10 @@ function getProjection(bounds, canvasSize) {
       const pctX = (x - gridX) / size;
       const pctY = 1 - (y - gridY) / size;
       
-      const lng = minLng + pctX * lngRange;
-      const yMerc = minYMerc + pctY * yMercRange;
+      const lngRad = minX + pctX * xRange;
+      const yMerc = minYMerc + pctY * yRange;
       
+      const lng = lngRad * 180 / Math.PI;
       const latRad = 2 * Math.atan(Math.exp(yMerc)) - Math.PI / 2;
       const lat = latRad * 180 / Math.PI;
       return { lat, lng };
