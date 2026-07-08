@@ -126,19 +126,43 @@ class GeoguessGame {
   }
 
   resizeCanvas() {
+    if (!this.canvas) return;
     const parent = this.canvas.parentElement;
-    const size = Math.min(parent.clientWidth, 750);
+    if (!parent) return;
     
-    // Set internal resolution matching DOM size scaled for high DPI screens
+    const width = Math.min(parent.clientWidth || 600, 950);
+    
+    // Calculate aspect ratio in Mercator space
+    let aspect = 1.0;
+    if (this.selectedCountry) {
+      const bounds = MAP_BOUNDS[this.selectedCountry];
+      const xRange = (bounds.maxLng - bounds.minLng) * Math.PI / 180;
+      const minY = Math.log(Math.tan(Math.PI / 4 + (bounds.minLat * Math.PI / 180) / 2));
+      const maxY = Math.log(Math.tan(Math.PI / 4 + (bounds.maxLat * Math.PI / 180) / 2));
+      const yRange = maxY - minY;
+      aspect = xRange / yRange;
+    }
+    
+    const paddingX = 60; // 45 left + 15 right
+    const paddingY = 60; // 45 top + 15 bottom
+    
+    const gridWidth = width - paddingX;
+    const gridHeight = gridWidth / aspect;
+    const height = gridHeight + paddingY;
+    
     const dpr = window.devicePixelRatio || 1;
-    this.canvas.width = size * dpr;
-    this.canvas.height = size * dpr;
+    this.canvas.width = width * dpr;
+    this.canvas.height = height * dpr;
     
-    this.canvas.style.width = `${size}px`;
-    this.canvas.style.height = `${size}px`;
+    this.canvas.style.width = `${width}px`;
+    this.canvas.style.height = `${height}px`;
+    
+    // Adjust parent container height to prevent margins
+    parent.style.height = `${height}px`;
     
     this.ctx.scale(dpr, dpr);
-    this.canvasSize = size;
+    this.canvasWidth = width;
+    this.canvasHeight = height;
     
     if (this.selectedCountry) {
       this.updateProjection();
@@ -149,7 +173,7 @@ class GeoguessGame {
   updateProjection() {
     if (!this.selectedCountry) return;
     const bounds = MAP_BOUNDS[this.selectedCountry];
-    this.projection = getProjection(bounds, this.canvasSize);
+    this.projection = getProjection(bounds, this.canvasWidth, this.canvasHeight);
   }
 
   startGame() {
@@ -390,22 +414,24 @@ class GeoguessGame {
 
   drawGame() {
     const ctx = this.ctx;
-    const size = this.canvasSize;
+    const width = this.canvasWidth;
+    const height = this.canvasHeight;
     
     // 1. Clear background
     ctx.fillStyle = '#0a0e17'; // Match CSS primary background
-    ctx.fillRect(0, 0, size, size);
+    ctx.fillRect(0, 0, width, height);
     
     if (!this.projection || !this.selectedCountry) return;
     const proj = this.projection;
     
-    // 2. Draw country outline
-    ctx.strokeStyle = 'rgba(240, 244, 248, 0.4)'; // Thin silver-white outline
+    // 2. Draw landmass
+    const mapData = COUNTRY_MAPS[this.selectedCountry];
+    ctx.fillStyle = '#111927'; // Subtle dark-blue/grey fill for landmass
+    ctx.strokeStyle = 'rgba(240, 244, 248, 0.4)'; // Silver outline
     ctx.lineWidth = 1.5;
     ctx.shadowBlur = 0;
     
-    const polygons = COUNTRY_MAPS[this.selectedCountry];
-    for (const polygon of polygons) {
+    for (const polygon of mapData.land) {
       if (polygon.length < 3) continue;
       ctx.beginPath();
       let first = true;
@@ -418,6 +444,29 @@ class GeoguessGame {
           ctx.lineTo(pt.x, pt.y);
         }
       }
+      ctx.fill();
+      ctx.stroke();
+    }
+    
+    // 3. Draw lakes (cutouts in landmass)
+    ctx.fillStyle = '#0a0e17'; // Filled with background color
+    ctx.strokeStyle = 'rgba(240, 244, 248, 0.2)'; // Faint border for lake
+    ctx.lineWidth = 1.0;
+    
+    for (const polygon of mapData.lakes || []) {
+      if (polygon.length < 3) continue;
+      ctx.beginPath();
+      let first = true;
+      for (const [lng, lat] of polygon) {
+        const pt = proj.project(lat, lng);
+        if (first) {
+          ctx.moveTo(pt.x, pt.y);
+          first = false;
+        } else {
+          ctx.lineTo(pt.x, pt.y);
+        }
+      }
+      ctx.fill();
       ctx.stroke();
     }
     
@@ -580,28 +629,44 @@ class GeoguessGame {
   drawRecapMap() {
     const canvas = document.getElementById('recapCanvas');
     const ctx = canvas.getContext('2d');
-    const size = Math.min(canvas.parentElement.clientWidth || 400, 500);
+    const width = Math.min(canvas.parentElement.clientWidth || 400, 500);
+    
+    // Calculate aspect ratio in Mercator space
+    let aspect = 1.0;
+    const bounds = MAP_BOUNDS[this.selectedCountry];
+    const xRange = (bounds.maxLng - bounds.minLng) * Math.PI / 180;
+    const minY = Math.log(Math.tan(Math.PI / 4 + (bounds.minLat * Math.PI / 180) / 2));
+    const maxY = Math.log(Math.tan(Math.PI / 4 + (bounds.maxLat * Math.PI / 180) / 2));
+    const yRange = maxY - minY;
+    aspect = xRange / yRange;
+    
+    const paddingX = 20; // smaller padding for recap
+    const paddingY = 20;
+    
+    const gridWidth = width - paddingX;
+    const gridHeight = gridWidth / aspect;
+    const height = gridHeight + paddingY;
     
     const dpr = window.devicePixelRatio || 1;
-    canvas.width = size * dpr;
-    canvas.height = size * dpr;
-    canvas.style.width = `${size}px`;
-    canvas.style.height = `${size}px`;
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
     ctx.scale(dpr, dpr);
     
-    // Clear recap
+    // Clear recap background
     ctx.fillStyle = '#0a0e17';
-    ctx.fillRect(0, 0, size, size);
+    ctx.fillRect(0, 0, width, height);
     
-    const bounds = MAP_BOUNDS[this.selectedCountry];
-    const recapProj = getProjection(bounds, size);
+    const recapProj = getProjection(bounds, width, height);
     
-    // Draw outline
+    // Draw landmass
+    const mapData = COUNTRY_MAPS[this.selectedCountry];
+    ctx.fillStyle = '#111927';
     ctx.strokeStyle = 'rgba(240, 244, 248, 0.3)';
     ctx.lineWidth = 1;
     
-    const polygons = COUNTRY_MAPS[this.selectedCountry];
-    for (const polygon of polygons) {
+    for (const polygon of mapData.land) {
       if (polygon.length < 3) continue;
       ctx.beginPath();
       let first = true;
@@ -614,6 +679,29 @@ class GeoguessGame {
           ctx.lineTo(pt.x, pt.y);
         }
       }
+      ctx.fill();
+      ctx.stroke();
+    }
+    
+    // Draw lakes
+    ctx.fillStyle = '#0a0e17';
+    ctx.strokeStyle = 'rgba(240, 244, 248, 0.15)';
+    ctx.lineWidth = 0.8;
+    
+    for (const polygon of mapData.lakes || []) {
+      if (polygon.length < 3) continue;
+      ctx.beginPath();
+      let first = true;
+      for (const [lng, lat] of polygon) {
+        const pt = recapProj.project(lat, lng);
+        if (first) {
+          ctx.moveTo(pt.x, pt.y);
+          first = false;
+        } else {
+          ctx.lineTo(pt.x, pt.y);
+        }
+      }
+      ctx.fill();
       ctx.stroke();
     }
     
@@ -655,34 +743,20 @@ class GeoguessGame {
 }
 
 // Projection helper
-function getProjection(bounds, canvasSize) {
-  // Convert all to radians for Mercator space calculations
+function getProjection(bounds, canvasWidth, canvasHeight) {
   const minLatRad = bounds.minLat * Math.PI / 180;
   const maxLatRad = bounds.maxLat * Math.PI / 180;
   const minLngRad = bounds.minLng * Math.PI / 180;
   const maxLngRad = bounds.maxLng * Math.PI / 180;
   
-  let minYMerc = Math.log(Math.tan(Math.PI / 4 + minLatRad / 2));
-  let maxYMerc = Math.log(Math.tan(Math.PI / 4 + maxLatRad / 2));
+  const minYMerc = Math.log(Math.tan(Math.PI / 4 + minLatRad / 2));
+  const maxYMerc = Math.log(Math.tan(Math.PI / 4 + maxLatRad / 2));
   
-  let minX = minLngRad;
-  let maxX = maxLngRad;
+  const minX = minLngRad;
+  const maxX = maxLngRad;
   
-  let xRange = maxX - minX;
-  let yRange = maxYMerc - minYMerc;
-  
-  // Maintain 1:1 aspect ratio in Mercator space
-  if (xRange > yRange) {
-    const diff = xRange - yRange;
-    minYMerc -= diff / 2;
-    maxYMerc += diff / 2;
-    yRange = xRange;
-  } else {
-    const diff = yRange - xRange;
-    minX -= diff / 2;
-    maxX += diff / 2;
-    xRange = yRange;
-  }
+  const xRange = maxX - minX;
+  const yRange = maxYMerc - minYMerc;
   
   // Padding for headers
   const paddingLeft = 45;
@@ -690,13 +764,8 @@ function getProjection(bounds, canvasSize) {
   const paddingRight = 15;
   const paddingBottom = 15;
   
-  const drawWidth = canvasSize - paddingLeft - paddingRight;
-  const drawHeight = canvasSize - paddingTop - paddingBottom;
-  
-  const size = Math.min(drawWidth, drawHeight);
-  
-  const gridX = paddingLeft + (drawWidth - size) / 2;
-  const gridY = paddingTop + (drawHeight - size) / 2;
+  const gridWidth = canvasWidth - paddingLeft - paddingRight;
+  const gridHeight = canvasHeight - paddingTop - paddingBottom;
   
   return {
     project: (lat, lng) => {
@@ -707,13 +776,13 @@ function getProjection(bounds, canvasSize) {
       const pctX = (lngRad - minX) / xRange;
       const pctY = (yMerc - minYMerc) / yRange;
       
-      const x = gridX + pctX * size;
-      const y = gridY + (1 - pctY) * size;
+      const x = paddingLeft + pctX * gridWidth;
+      const y = paddingTop + (1 - pctY) * gridHeight;
       return { x, y };
     },
     unproject: (x, y) => {
-      const pctX = (x - gridX) / size;
-      const pctY = 1 - (y - gridY) / size;
+      const pctX = (x - paddingLeft) / gridWidth;
+      const pctY = 1 - (y - paddingTop) / gridHeight;
       
       const lngRad = minX + pctX * xRange;
       const yMerc = minYMerc + pctY * yRange;
@@ -723,10 +792,10 @@ function getProjection(bounds, canvasSize) {
       const lat = latRad * 180 / Math.PI;
       return { lat, lng };
     },
-    gridX,
-    gridY,
-    gridWidth: size,
-    gridHeight: size
+    gridX: paddingLeft,
+    gridY: paddingTop,
+    gridWidth,
+    gridHeight
   };
 }
 
