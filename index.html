@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Geography Grid Guesses | Interactive Map Game</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="Test your geography skills in this interactive grid-overlay guessing game. Pinpoint cities on country outlines with dynamic difficulties from 2x2 to 16x16.">
+  <meta name="keywords" content="geography game, map guess, grid overlay, country outline, interactive map, educational game, html5 game">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Custom Styles -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Game Header -->
+  <header>
+    <div class="logo-container">
+      <i class="fa-solid fa-earth-americas logo-icon"></i>
+      <h1>GRID GUESSES</h1>
+    </div>
+    <div class="header-controls">
+      <button id="muteBtn" class="icon-btn" title="Toggle Sound">
+        <i class="fa-solid fa-volume-up"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Game Frame -->
+  <main>
+    
+    <!-- 1. WELCOME SCREEN -->
+    <section id="welcomeScreen" class="screen active">
+      <div class="welcome-card">
+        <h2 class="welcome-title">Geography Grid Guesses</h2>
+        <p class="welcome-desc">
+          Test your geographic knowledge! An outline of your selected country will be overlaid with a coordinate grid. You'll be given a random city name and must click the correct grid square. The smaller your grid size, the higher the difficulty and points!
+        </p>
+        
+        <h3 class="selector-title" style="margin-bottom: 1rem;">Choose a Country</h3>
+        <div class="country-grid">
+          <button class="country-btn" data-country="germany">
+            <span class="flag">🇩🇪</span>
+            <span>Germany</span>
+          </button>
+          <button class="country-btn" data-country="france">
+            <span class="flag">🇫🇷</span>
+            <span>France</span>
+          </button>
+          <button class="country-btn" data-country="spain">
+            <span class="flag">🇪🇸</span>
+            <span>Spain</span>
+          </button>
+          <button class="country-btn" data-country="uk">
+            <span class="flag">🇬🇧</span>
+            <span>United Kingdom</span>
+          </button>
+          <button class="country-btn" data-country="us">
+            <span class="flag">🇺🇸</span>
+            <span>United States</span>
+          </button>
+          <button class="country-btn" data-country="japan">
+            <span class="flag">🇯🇵</span>
+            <span>Japan</span>
+          </button>
+        </div>
+
+        <button id="startBtn" class="btn" disabled style="margin-top: 1rem;">
+          Deploy Coordinates <i class="fa-solid fa-crosshairs" style="margin-left: 0.5rem;"></i>
+        </button>
+
+        <!-- Rules Info Panel -->
+        <div class="rules-container" style="text-align: left;">
+          <h4>Game Rules</h4>
+          <ul>
+            <li>You will play exactly 15 rounds of coordinate guessing.</li>
+            <li>Before clicking, select your difficulty for that round. Higher grids yield more points.</li>
+            <li>Score breakdown: 2x2 (1 pt), 3x3 (2 pts), 4x4 (3 pts), 6x6 (4 pts), 8x8 (5 pts), 16x16 (7 pts).</li>
+            <li>Click directly inside a cell to lock in your guess. Good luck!</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. PLAY SCREEN -->
+    <section id="playScreen" class="screen">
+      <div class="game-container">
+        
+        <!-- Left Panel: Stats and Controls -->
+        <div class="game-sidebar">
+          <div class="dashboard-card">
+            <div class="stat-row">
+              <span class="stat-label">Round</span>
+              <span id="currentRound" class="stat-value">1 / 15</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-label">Score</span>
+              <div class="stat-value highlight">
+                <span id="currentScore">0</span> <span style="font-size: 0.9rem; color: var(--text-secondary)">/ <span id="maxScore">0</span> max</span>
+              </div>
+            </div>
+            
+            <!-- Target City Prompt -->
+            <div class="prompt-card">
+              <div class="prompt-label">Locate City</div>
+              <div id="targetCityName" class="target-city-name">Berlin</div>
+            </div>
+
+            <!-- Difficulty (Grid Size) Selector -->
+            <div class="difficulty-selector">
+              <span class="selector-title">Select Grid Size (Difficulty)</span>
+              <div class="grid-options">
+                <button class="grid-opt-btn" data-grid="2">
+                  <span class="grid-size-text">2 x 2</span>
+                  <span class="points-badge">1 Point</span>
+                </button>
+                <button class="grid-opt-btn" data-grid="3">
+                  <span class="grid-size-text">3 x 3</span>
+                  <span class="points-badge">2 Points</span>
+                </button>
+                <button class="grid-opt-btn" data-grid="4">
+                  <span class="grid-size-text">4 x 4</span>
+                  <span class="points-badge">3 Points</span>
+                </button>
+                <button class="grid-opt-btn" data-grid="6">
+                  <span class="grid-size-text">6 x 6</span>
+                  <span class="points-badge">4 Points</span>
+                </button>
+                <button class="grid-opt-btn" data-grid="8">
+                  <span class="grid-size-text">8 x 8</span>
+                  <span class="points-badge">5 Points</span>
+                </button>
+                <button class="grid-opt-btn" data-grid="16">
+                  <span class="grid-size-text">16 x 16</span>
+                  <span class="points-badge">7 Points</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Center Panel: Map Canvas -->
+        <div class="map-viewport">
+          <canvas id="mapCanvas"></canvas>
+          <div class="instructions-overlay">
+            Click on a grid cell to guess!
+          </div>
+
+          <!-- Feedback Modal Overlay (Inside viewport for high immersion) -->
+          <div id="feedbackOverlay" class="feedback-overlay">
+            <div id="feedbackCard" class="feedback-card">
+              <div id="feedbackIcon" class="feedback-icon">🏆</div>
+              <h3 id="feedbackTitle" class="feedback-title">CORRECT!</h3>
+              <p id="feedbackDetail" class="feedback-detail">
+                You correctly identified Berlin! +4 Points.
+              </p>
+              <button id="nextRoundBtn" class="btn">
+                Next Coordinate <i class="fa-solid fa-arrow-right" style="margin-left: 0.5rem;"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 3. GAME OVER SCREEN -->
+    <section id="gameOverScreen" class="screen">
+      <div class="game-over-container">
+        
+        <!-- Summary Stats Card -->
+        <div class="summary-card">
+          <h2 class="game-over-title">Mission Complete</h2>
+          <div id="accuracyRating" style="font-size: 1.1rem; color: var(--accent-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em; margin-bottom: 0.5rem;">
+            Master Navigator 🌐
+          </div>
+          
+          <div id="highScoreBadge" class="prompt-label" style="background: rgba(0,255,102,0.15); border: 1px solid var(--accent-color); padding: 0.3rem 1rem; border-radius: 20px; color: var(--accent-color); margin-bottom: 0.5rem; display: none;">
+            New Personal Best! 🔥
+          </div>
+
+          <div id="finalScore" class="final-score-badge">72 / 105</div>
+          
+          <div class="stat-grid">
+            <div class="mini-stat-card">
+              <div class="mini-stat-label">Correct Rounds</div>
+              <div id="totalCorrect" class="mini-stat-val">11 / 15</div>
+            </div>
+            <div class="mini-stat-card">
+              <div class="mini-stat-label">Accuracy</div>
+              <div id="gameAccuracy" class="mini-stat-val">73%</div>
+            </div>
+          </div>
+
+          <div id="localHighScore" style="margin-bottom: 1.5rem; color: var(--text-secondary); font-weight: 600;">
+            Best Score: 72 pts
+          </div>
+
+          <button id="playAgainBtn" class="btn">
+            Recalibrate & Play Again <i class="fa-solid fa-rotate-left" style="margin-left: 0.5rem;"></i>
+          </button>
+        </div>
+
+        <!-- End Recap Map Card -->
+        <div class="recap-map-card">
+          <h3 class="recap-map-title">Round Guess Breakdown</h3>
+          <div class="recap-viewport">
+            <canvas id="recapCanvas"></canvas>
+          </div>
+          <div class="recap-legend">
+            <div class="legend-item">
+              <div class="legend-color correct"></div>
+              <span>Correct guesses</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color incorrect"></div>
+              <span>Incorrect guesses</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p>&copy; 2026 Geography Grid Guesses. Powered by Antigravity AI.</p>
+  </footer>
+
+  <!-- Core Javascript files -->
+  <script src="cities.js"></script>
+  <script src="maps_data.js"></script>
+  <script src="sound.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
