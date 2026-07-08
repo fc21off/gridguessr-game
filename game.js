@@ -164,6 +164,7 @@ class GeoguessGame {
     document.getElementById('welcomeScreen').classList.remove('active');
     document.getElementById('playScreen').classList.add('active');
     
+    this.resizeCanvas(); // Update canvas sizing now that the container is visible
     this.updateProjection();
     this.loadRound();
   }
@@ -579,7 +580,7 @@ class GeoguessGame {
   drawRecapMap() {
     const canvas = document.getElementById('recapCanvas');
     const ctx = canvas.getContext('2d');
-    const size = Math.min(canvas.parentElement.clientWidth, 500);
+    const size = Math.min(canvas.parentElement.clientWidth || 400, 500);
     
     const dpr = window.devicePixelRatio || 1;
     canvas.width = size * dpr;
