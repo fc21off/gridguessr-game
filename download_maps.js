@@ -1,37 +1,31 @@
 /**
- * Geography Grid Guesses - Dynamic Map Data Downloader (Land + Lakes)
+ * Geography Grid Guesses - High Resolution Map Data Downloader (1:10m Outlines + Lake Michigan)
  * 
- * Downloads 1:50m Natural Earth country outlines and lakes,
- * and compiles them into maps_data.js.
+ * Downloads 1:10m Natural Earth country outlines for maximum detail (Fills Germany's detail requirements)
+ * and extracts Lake Michigan only (ignores other lakes).
+ * 
+ * Run using Node:
+ *   node download_maps.js
  */
 
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
 
-const LAND_URL = 'https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_50m_admin_0_countries.geojson';
+const LAND_URL = 'https://raw.githubusercontent.com/martynafford/natural-earth-geojson/master/10m/cultural/ne_10m_admin_0_countries.json';
 const LAKES_URL = 'https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_50m_lakes.geojson';
 const OUTPUT_FILE = path.join(__dirname, 'maps_data.js');
-
-const MAP_BOUNDS = {
-  germany: { minLat: 47.2, maxLat: 55.1, minLng: 5.8, maxLng: 15.1 },
-  france: { minLat: 41.3, maxLat: 51.1, minLng: -5.2, maxLng: 9.6 },
-  spain: { minLat: 35.7, maxLat: 43.9, minLng: -9.5, maxLng: 3.4 },
-  uk: { minLat: 49.8, maxLat: 58.8, minLng: -8.7, maxLng: 1.8 },
-  us: { minLat: 24.3, maxLat: 49.4, minLng: -125.0, maxLng: -66.8 },
-  japan: { minLat: 30.5, maxLat: 45.6, minLng: 129.0, maxLng: 145.9 }
-};
 
 function download(url) {
   return new Promise((resolve, reject) => {
     https.get(url, (res) => {
       if (res.statusCode !== 200) {
-        reject(new Error(`Failed to fetch map data from ${url}: Status Code ${res.statusCode}`));
+        reject(new Error(`Failed to fetch map data: Status Code ${res.statusCode}`));
         return;
       }
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => resolve(body));
+      let body = [];
+      res.on('data', (chunk) => body.push(chunk));
+      res.on('end', () => resolve(Buffer.concat(body).toString('utf8')));
     }).on('error', (err) => {
       reject(err);
     });
@@ -72,32 +66,24 @@ function matchCountry(feature) {
   return null;
 }
 
-function ringOverlaps(ring, bounds) {
-  for (const [lng, lat] of ring) {
-    if (lat >= bounds.minLat && lat <= bounds.maxLat &&
-        lng >= bounds.minLng && lng <= bounds.maxLng) {
-      return true;
-    }
-  }
-  return false;
-}
-
 async function run() {
   try {
-    console.log('Downloading 1:50m Natural Earth countries...');
+    console.log('Downloading high-resolution (1:10m) Natural Earth countries (approx 15MB)...');
     const countriesBody = await download(LAND_URL);
     const countriesGeojson = JSON.parse(countriesBody);
     
-    console.log('Downloading 1:50m Natural Earth lakes...');
+    console.log('Downloading lakes data...');
     const lakesBody = await download(LAKES_URL);
     const lakesGeojson = JSON.parse(lakesBody);
     
     const compiledData = {};
-    for (const c of Object.keys(MAP_BOUNDS)) {
+    const countries = ['germany', 'france', 'spain', 'uk', 'us', 'japan'];
+    for (const c of countries) {
       compiledData[c] = { land: [], lakes: [] };
     }
 
-    // 1. Extract Land
+    // 1. Extract Land (1:10m resolution)
+    console.log('Extracting land boundaries...');
     for (const feature of countriesGeojson.features) {
       const countryKey = matchCountry(feature);
       if (countryKey) {
@@ -106,16 +92,14 @@ async function run() {
       }
     }
 
-    // 2. Extract Lakes
+    // 2. Extract Lakes (Only keep Lake Michigan for USA)
+    console.log('Extracting Lake Michigan...');
     for (const feature of lakesGeojson.features) {
-      const polygons = extractPolygons(feature.geometry);
-      for (const polygon of polygons) {
-        // Find which country bounds this lake overlaps
-        for (const [countryKey, bounds] of Object.entries(MAP_BOUNDS)) {
-          if (ringOverlaps(polygon, bounds)) {
-            compiledData[countryKey].lakes.push(polygon);
-          }
-        }
+      const props = feature.properties || {};
+      const name = (props.name || props.NAME || '');
+      if (name === 'Lake Michigan') {
+        const polygons = extractPolygons(feature.geometry);
+        compiledData.us.lakes = compiledData.us.lakes.concat(polygons);
       }
     }
 
@@ -123,13 +107,16 @@ async function run() {
     console.log('\n--- Compilation Results ---');
     for (const country of Object.keys(compiledData)) {
       const landP = compiledData[country].land.length;
+      let landPts = 0;
+      compiledData[country].land.forEach(r => landPts += r.length);
+      
       const lakeP = compiledData[country].lakes.length;
-      console.log(`✓ ${country}: ${landP} land polygons, ${lakeP} lake polygons.`);
+      console.log(`✓ ${country}: ${landP} land polygons (${landPts} points), ${lakeP} lake polygons.`);
     }
 
     // Write output JS file
     const jsContent = `/**
- * Geography Grid Guesses - Country Outlines Database (with Lakes)
+ * Geography Grid Guesses - Country Outlines Database (1:10m outlines, Lake Michigan only)
  * 
  * Generated dynamically by download_maps.js.
  */

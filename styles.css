@@ -99,7 +99,7 @@ main {
   justify-content: center;
   align-items: center;
   padding: 2rem;
-  max-width: 1500px;
+  max-width: 1600px;
   width: 100%;
   margin: 0 auto;
 }
@@ -198,7 +198,7 @@ main {
 /* Play Screen Layout */
 .game-container {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 280px 1fr;
   gap: 2rem;
   width: 100%;
   align-items: stretch;

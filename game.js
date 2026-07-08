@@ -130,7 +130,8 @@ class GeoguessGame {
     const parent = this.canvas.parentElement;
     if (!parent) return;
     
-    const width = Math.min(parent.clientWidth || 600, 950);
+    // Capped at 1000px on large displays to make maps look massive
+    const containerWidth = Math.min(parent.clientWidth || 600, 1000);
     
     // Calculate aspect ratio in Mercator space
     let aspect = 1.0;
@@ -146,8 +147,20 @@ class GeoguessGame {
     const paddingX = 60; // 45 left + 15 right
     const paddingY = 60; // 45 top + 15 bottom
     
-    const gridWidth = width - paddingX;
-    const gridHeight = gridWidth / aspect;
+    // Limit heights to avoid scrolling: max grid height is 520px (total height 580px)
+    // We also scale down the width for tall countries to maintain 1:1 aspect ratio!
+    const maxGridHeight = Math.min(window.innerHeight - 240, 520);
+    const maxGridWidth = containerWidth - paddingX;
+    
+    let gridWidth = maxGridWidth;
+    let gridHeight = gridWidth / aspect;
+    
+    if (gridHeight > maxGridHeight) {
+      gridHeight = maxGridHeight;
+      gridWidth = gridHeight * aspect;
+    }
+    
+    const width = gridWidth + paddingX;
     const height = gridHeight + paddingY;
     
     const dpr = window.devicePixelRatio || 1;
